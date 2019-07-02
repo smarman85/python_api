@@ -1,0 +1,102 @@
+circleci:
+  - config:
+    - in .circleci dir
+    - build docker images, tests
+    - sample
+      version: 2
+      jobs:
+        build:
+          docker:
+            - image: python:3.5
+          working_directory: /code
+          steps:
+            - checkout
+            - run:
+              name: Hello World
+              command: echo "Hello World"
+
+      explained:
+        - first job will run inside docker container
+          in the "docker" section we specify the image to use
+        - 'working_directory' arbitrary dir where the code is checked out and tests are run
+          from
+        - 'steps' all the important work like building, testing, shipping etc
+          in this ex we simply echo "Hello World"
+        - git add .
+        - git commit -m "added circle conf"
+          git push orign <branch-name>
+
+      walkthrough:
+        - every config starts with a version key. Used to issue warnings ab9out breaking changes
+        - creting a build job
+          - a run is comprised of one or more jobs. because this job doesn't use workflows it must have a 
+            'build' job
+          - 'working_directory' key to specify where a jobs 'steps' run. Default is ~/project, where project is a literal string
+        - Choose an Executor Type:
+          - steps run in a virtual env called an executor
+          - above 'docker' executor is used to specify a custom Docker image
+          - the first image listed becomes the 'primary container' all commands for a job execute in this contaner
+          !NOTE circleci/python:3.5 is a convenience image provided by CircleCi. Images are exenstions for official images
+         - Other services and set env vars
+            - use the 'environment' key to set environment variables for all commands in a container
+            - ex)
+              version: 2
+              jobs:
+                build:
+                  working_directory: ~/circleci-demo-python-django
+                  docker:
+                    - image: circleci/python:3.6.4 ### every job must define an image for the docker executeor and subsequent jobs may define a diff image
+                      environment:
+                        PIPENV_VENV_IN_PROJECT: true
+                        DATABASE_URL: postgresql://root@localhost/circle_test?sslmode=disable
+                    - image: circleci/postgres:9.6.2 # ex of how to specify a service container
+                      environment:
+                        POSTGRES_USER: root
+                        POSTGRES_DB: circle_test
+          - installing dependencies:
+            - after choosing containers for the job create 'steps' to run specific commands
+            - use 'checkout' step to checkout source code !DEFAULT checkout to dir listed as working_directory
+            - use 'run' to execute bash commands. Ex pipenv is used to creat a virtual env and install python
+              version: 2
+              jobs:
+                build:
+                  # ...
+                  steps:
+                    - checkout
+                    - run:
+                      command: | # use pipenv to install dependencies
+                        sudo pip install pipenv
+                        pipenv install
+          - Cache Dependencies:
+            - save time between builds
+            - 'save_cache' step to cache certian files or dirs
+            - 'restore_cache' to restor cached files or directories
+              ex)
+                version: 2
+                jobs:
+                  build:
+                    # ...
+                      steps:
+                        - checkout
+                        - run: sudo chown -R circleci:circleci /usr/local/bin
+                        - run: sudo chown -R circleci:circleci /usr/local/lib/python3.6/site-packages
+                        - restore_cache: # ensure this step occures before installing dependencies
+                            key: deps9-{{ .Branch }}-{{ checksum "Pipfile.lock" }}
+                        - run:
+                            command: |
+                              sudo pip install pipenv
+                              pipenv install
+                        - save_cache:
+                            key: deps9-{{ .Branch }}-{{ checksum "Pipfile.lock" }}
+                            paths:
+                              - ".venv"
+                              - "/usr/local/bin"
+                              - "/usr/local/lib/python3.6/site-packages"
+                        - run:
+                            command: |
+                              pipenv run python manage.py test
+
+
+
+
+  - docs: https://circleci.com/docs/2.0/
