@@ -1,0 +1,25 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  namespace: pythonapi
+  name: pythonapi
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: pythonapi
+    spec:
+      containers:
+      - name: pythonapi
+        image: smarman/pythonapi:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5000
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 60
+
